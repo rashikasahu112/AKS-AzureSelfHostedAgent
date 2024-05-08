@@ -1,0 +1,87 @@
+trigger: none
+# - main
+
+pool:
+  vmImage: ubuntu-latest
+
+resources:
+- repo: self
+
+variables:
+  tag: '$(Build.BuildId)'
+  ACR_ID: ""
+
+stages:
+- stage: CI
+  displayName: CI
+  pool:
+      vmImage: ubuntu-latest
+  jobs:
+    - job: AKS_Destroy
+      displayName: AKS_Destroy
+      steps:
+      - task: AzureCLI@2
+        displayName: Azure CLI
+        inputs:
+          azureSubscription: 'Azure(visual studio professional)'
+          scriptType: 'bash'
+          scriptLocation: 'inlineScript'
+          inlineScript: |
+            id=$(az acr show --name $(ACR_NAME) --query id -o tsv)
+            echo "##vso[task.setvariable variable=ACR_ID;]$id"
+            
+      - task: ms-devlabs.custom-terraform-tasks.custom-terraform-installer-task.TerraformInstaller@1
+        displayName: Terraform Install
+        inputs:
+          terraformVersion: 'latest'
+          
+      - task: TerraformTaskV4@4
+        displayName: Terraform Init
+        inputs:
+          provider: 'azurerm'
+          command: 'init'
+          workingDirectory: '$(System.DefaultWorkingDirectory)/terraform/aks'
+          backendServiceArm: 'Azure(visual studio professional)'
+          backendAzureRmResourceGroupName: 'rg'
+          backendAzureRmStorageAccountName: 'storageaccountblackbaud'
+          backendAzureRmContainerName: 'terraform-aks'
+          backendAzureRmKey: 'terraform.tfstate'
+
+      - task: TerraformTaskV4@4
+        displayName: Terraform Destroy
+        inputs:
+          provider: 'azurerm'
+          command: 'destroy'
+          workingDirectory: '$(System.DefaultWorkingDirectory)/terraform/aks'
+          commandOptions: '-var="acr_id=$(ACR_ID)"'
+          environmentServiceNameAzureRM: 'Azure(visual studio professional)'
+
+      
+    - job: ACR_Destroy
+      displayName: ACR_Destroy
+      dependsOn: AKS_Destroy
+      steps:
+      
+      - task: TerraformTaskV4@4
+        displayName: Terraform Init
+        inputs:
+          provider: 'azurerm'
+          command: 'init'
+          workingDirectory: '$(System.DefaultWorkingDirectory)/terraform/acr'
+          backendServiceArm: 'Azure(visual studio professional)'
+          backendAzureRmResourceGroupName: 'rg'
+          backendAzureRmStorageAccountName: 'storageaccountblackbaud'
+          backendAzureRmContainerName: 'terraform-acr'
+          backendAzureRmKey: 'terraform.tfstate'
+
+      - task: TerraformTaskV4@4
+        displayName: Terraform Destroy
+        inputs:
+          provider: 'azurerm'
+          command: 'destroy'
+          workingDirectory: '$(System.DefaultWorkingDirectory)/terraform/acr'
+          environmentServiceNameAzureRM: 'Azure(visual studio professional)'
+
+
+          
+      

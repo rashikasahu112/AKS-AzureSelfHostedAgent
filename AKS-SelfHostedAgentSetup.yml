@@ -1,0 +1,131 @@
+trigger: none
+
+pool:
+  vmImage: ubuntu-latest
+
+resources:
+- repo: self
+
+variables:
+- group: AZURE_AGENT
+- name : ACR_ID
+  value : ''
+
+
+stages:
+- stage: CI
+  displayName: CI
+  pool:
+      vmImage: ubuntu-latest
+  jobs:
+  - job: ACR
+    displayName: ACR
+    steps:
+    - task: ms-devlabs.custom-terraform-tasks.custom-terraform-installer-task.TerraformInstaller@1
+      displayName: Terraform Install
+      inputs:
+        terraformVersion: 'latest'
+        
+    - task: TerraformTaskV4@4
+      displayName: Terraform Init
+      inputs:
+        provider: 'azurerm'
+        command: 'init'
+        workingDirectory: '$(System.DefaultWorkingDirectory)/terraform/acr'
+        backendServiceArm: 'Azure(visual studio professional)'
+        backendAzureRmResourceGroupName: 'rg'
+        backendAzureRmStorageAccountName: 'storageaccountblackbaud'
+        backendAzureRmContainerName: 'terraform-acr'
+        backendAzureRmKey: 'terraform.tfstate'
+
+    - task: TerraformTaskV4@4
+      displayName: Terraform Plan
+      inputs:
+        provider: 'azurerm'
+        command: 'plan'
+        workingDirectory: '$(System.DefaultWorkingDirectory)/terraform/acr'
+        environmentServiceNameAzureRM: 'Azure(visual studio professional)'
+
+    - task: TerraformTaskV4@4
+      displayName: Terraform Apply
+      inputs:
+        provider: 'azurerm'
+        command: 'apply'
+        workingDirectory: '$(System.DefaultWorkingDirectory)/terraform/acr'
+        environmentServiceNameAzureRM: 'Azure(visual studio professional)'
+          
+    - task: Docker@0
+      displayName: Image Build
+      inputs:
+        containerregistrytype: 'Azure Container Registry'
+        azureSubscription: 'Azure(visual studio professional)'
+        azureContainerRegistry: '{"loginServer":"selfhostedagentacrdev.azurecr.io", "id" : "/subscriptions/52e7dcd6-0016-4e16-937d-6d650b75f802/resourceGroups/rg/providers/Microsoft.ContainerRegistry/registries/selfHostedAgentACRdev"}'
+        action: 'Build an image'
+        dockerFile: '**/Dockerfile'
+        imageName: 'AKS-Agent-Image'
+
+    - task: Docker@0
+      displayName: Image Push
+      inputs:
+        containerregistrytype: 'Azure Container Registry'
+        azureSubscription: 'Azure(visual studio professional)'
+        azureContainerRegistry: '{"loginServer":"selfhostedagentacrdev.azurecr.io", "id" : "/subscriptions/52e7dcd6-0016-4e16-937d-6d650b75f802/resourceGroups/rg/providers/Microsoft.ContainerRegistry/registries/selfHostedAgentACRdev"}'
+        action: 'Push an image'
+        imageName: 'AKS-Agent-Image'
+  
+  - job: AKS
+    displayName: AKS
+    dependsOn: ACR
+    steps:
+    
+    - task: AzureCLI@2
+      displayName: Azure CLI
+      inputs:
+        azureSubscription: 'Azure(visual studio professional)'
+        scriptType: 'bash'
+        scriptLocation: 'inlineScript'
+        inlineScript: |
+          id=$(az acr show --name $(ACR_NAME) --query id -o tsv)
+          echo "##vso[task.setvariable variable=ACR_ID;]$id"
+
+    - task: TerraformTaskV4@4
+      displayName: Terraform Init
+      inputs:
+        provider: 'azurerm'
+        command: 'init'
+        workingDirectory: '$(System.DefaultWorkingDirectory)/terraform/aks'
+        backendServiceArm: 'Azure(visual studio professional)'
+        backendAzureRmResourceGroupName: 'rg'
+        backendAzureRmStorageAccountName: 'storageaccountblackbaud'
+        backendAzureRmContainerName: 'terraform-aks'
+        backendAzureRmKey: 'terraform.tfstate'
+
+    - task: TerraformTaskV4@4
+      displayName: Terraform Plan
+      inputs:
+        provider: 'azurerm'
+        command: 'plan'
+        workingDirectory: '$(System.DefaultWorkingDirectory)/terraform/aks'
+        commandOptions: '-var="acr_id=$(ACR_ID)"'
+        environmentServiceNameAzureRM: 'Azure(visual studio professional)'
+
+    - task: TerraformTaskV4@4
+      displayName: Terraform Apply
+      inputs:
+        provider: 'azurerm'
+        command: 'apply'
+        workingDirectory: '$(System.DefaultWorkingDirectory)/terraform/aks'
+        commandOptions: '-var="acr_id=$(ACR_ID)"'
+        environmentServiceNameAzureRM: 'Azure(visual studio professional)'
+          
+    - task: AzureCLI@2
+      displayName: Cluster Configuration
+      inputs:
+        azureSubscription: 'Azure(visual studio professional)'
+        scriptType: 'bash'
+        scriptLocation: 'inlineScript'
+        inlineScript: |
+          az aks get-credentials --resource-group $(RESOURCE_GROUP_NAME) --name $(AKS_NAME) --overwrite-existing
+          kubectl apply -f $(System.DefaultWorkingDirectory)/Agent-Secret.yml
+          kubectl apply -f $(System.DefaultWorkingDirectory)/Agent-Deployment.yml
+    
