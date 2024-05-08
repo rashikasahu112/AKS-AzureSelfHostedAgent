@@ -5,17 +5,17 @@ This repository contains scripts and configurations for deploying Azure Self-hos
 
 ## Components Used
 
-- **Azure DevOps:** Utilized as the CI/CD tool for automating the build, test, and deployment processes.
+- **Azure DevOps:** Utilized as the CI/CD tool.
 
 - **Azure Self-Hosted Agents:** Components belonging to Azure DevOps, used to execute pipelines within your own infrastructure.
 
 - **Azure Kubernetes Service (AKS):** A managed container orchestration tool used to deploy and manage containerized applications.
 
-- **Terraform:** An infrastructure as code tool utilized to deploy the infrastructure via scripts.
+- **Terraform:** An infrastructure as code tool used to deploy the infrastructure via scripts.
 
 - **Docker:** A containerization tool used to package applications along with their dependencies in isolated environments.
 
-- **Azure Container Registry (ACR):** Used to host Docker images containing the application and its dependencies.
+- **Azure Container Registry (ACR):** Used to host Docker images.
 
 
 ## Deployment Steps
