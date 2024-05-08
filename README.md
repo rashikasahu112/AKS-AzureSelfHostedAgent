@@ -1,9 +1,9 @@
-## Azure Self-Hosted Agent Deployment on Azure Kubernetes Service (AKS)
+# Azure Self-Hosted Agent Deployment on Azure Kubernetes Service (AKS)
 
-### Overview
+## Overview
 This repository contains scripts and configurations for deploying Azure Self-hosted agents on Azure Kubernetes Service (AKS) capable of supporting multiple frameworks including .NET, Java, and React applications. These agents can be used to execute workloads and build/deploy applications.
 
-### Components Used
+## Components Used
 
 **Azure DevOps:** Utilized as the CI/CD tool for automating the build, test, and deployment processes.
 
@@ -18,7 +18,7 @@ This repository contains scripts and configurations for deploying Azure Self-hos
 **Azure Container Registry (ACR):** Used to host Docker images containing the application and its dependencies.
 
 
-### Deployment Steps
+## Deployment Steps
 
 **Deploy Azure Container Registry(ACR):** Utilized Terraform scripts to provision the infrastructure component.
 
@@ -32,7 +32,7 @@ This repository contains scripts and configurations for deploying Azure Self-hos
 
 
 
-### Steps to Reproduce
+## Steps to Reproduce
 - Setup a Backend for Terraform State Files
 - Establish a Azure Service Connection
 - Execute the pipeline
